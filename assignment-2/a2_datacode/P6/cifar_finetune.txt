@@ -1,0 +1,156 @@
+######### PROBLEM 6 cifar_finetune.py ################
+'''
+This is starter code for Assignment 2 Problem 6 of CMPT 726 Fall 2019.
+The file is adapted from the repo https://github.com/chenyaofo/CIFAR-pretrained-models
+'''
+
+######################################################
+####### Do not modify the code above this line #######
+######################################################
+import torch.nn.functional as F
+USE_NEW_ARCHITECTURE = False
+
+class cifar_resnet20(nn.Module):
+    def __init__(self):
+        super(cifar_resnet20, self).__init__()
+        ResNet20 = CifarResNet(BasicBlock, [3, 3, 3])
+        url = 'https://github.com/chenyaofo/CIFAR-pretrained-models/releases/download/resnet/cifar100-resnet20-8412cc70.pth'
+        ResNet20.load_state_dict(model_zoo.load_url(url))
+        modules = list(ResNet20.children())[:-1]
+        backbone = nn.Sequential(*modules) # * is to unpack argument lists
+        self.backbone = nn.Sequential(*modules)
+
+        if USE_NEW_ARCHITECTURE:
+            hidden_nodes = 256
+            self.fc1 = nn.Linear(in_features = 64, out_features = hidden_nodes) #
+            self.fcbn1 = nn.BatchNorm1d(hidden_nodes)#
+            self.fc = nn.Linear(in_features = hidden_nodes, out_features = 10)#
+            self.dropout_rate =0.0  #To set dropout rate
+        else:
+            self.fc = nn.Linear(64, 10)
+
+    def forward(self, x):
+        out = self.backbone(x)
+        out = out.view(out.shape[0], -1)
+
+        if USE_NEW_ARCHITECTURE:
+            out = F.dropout(F.relu(self.fcbn1(self.fc1(out))),
+                            p=self.dropout_rate, training=self.training)
+            out = self.fc(out)
+            return F.log_softmax(out, dim=1)
+        else:
+            return F.log_softmax(self.fc(out),dim=1)
+            # return self.fc(out)
+
+def accuracy(out, labels):
+    total =0
+    for index in range(0,len(out)):
+        if out[index] == labels[index]:
+            total += 1
+    return total, total/len(out)
+
+device = torch.device("cuda:0" if torch.cuda.is_available() else 'cpu')
+# BATCH_SIZE = 128
+BATCH_SIZE = 64
+
+
+if __name__ == '__main__':
+    model = cifar_resnet20()
+    model.to(device) #.cuda() to use GPU
+
+    transform = transforms.Compose([transforms.ToTensor(),
+                                    transforms.Normalize(mean=(0.4914, 0.4822, 0.4465),
+                                                         std=(0.2023, 0.1994, 0.2010))])
+    trainset = datasets.CIFAR10('./data', download=True, transform=transform) #Number of datapoint = 50000
+    trainloader = torch.utils.data.DataLoader(trainset, batch_size=BATCH_SIZE,
+                                          shuffle=True, num_workers=0)#num_workers=2
+    criterion = nn.CrossEntropyLoss()
+    optimizer = optim.SGD(list(model.fc.parameters()), lr=0.001, momentum=0.9,weight_decay=0.0)
+    # optimizer = optim.SGD(list(model.backbone.parameters()), lr=0.001, momentum=0.9,weight_decay=0.0)
+    # optimizer = optim.SGD(list(model.fc.parameters())+list(model.backbone.parameters()), lr=0.001, momentum=0.9,weight_decay=0.0)
+
+    ############################################################
+    ### Do the training
+    DO_TRAINING = True
+    DO_TESTING = True
+    NUM_EPOCH_TRAINING = 1
+
+    if DO_TRAINING:
+        model.train()
+        for epoch in range(NUM_EPOCH_TRAINING):  # loop over the dataset multiple times
+            running_loss = 0.0
+
+            for i, data in enumerate(trainloader, 0):
+                # get the inputs
+                inputs, labels = data
+                # zero the parameter gradients
+                optimizer.zero_grad()
+                # forward + backward + optimize
+                outputs = model(inputs.to(device)) #.cuda() to use GPU
+                loss = criterion(outputs.to(device), labels.to(device)) #.cuda() to use GPU
+                loss.backward()
+                optimizer.step()
+                running_loss += loss.item()
+                if i % 20 == 19:    # print every 20 mini-batches
+                    print('[%d, %5d] loss: %.3f' %
+                        (epoch + 1, i + 1, running_loss / 20))
+                    running_loss = 0.0
+        print('Finished Training')
+
+    with torch.no_grad():
+        TEST_BATCH_SIZE = 20
+        SAVING_JSON = False #True
+        if DO_TESTING:
+        ### DO TESTING/EVALUATION
+            model.eval()
+            testset = datasets.CIFAR10(root='./data', train=False,
+            download=True, transform=transform)
+            testloader = torch.utils.data.DataLoader(testset, batch_size=TEST_BATCH_SIZE,
+            shuffle=False, num_workers=0)
+
+            running_test_loss = 0
+            match= running_match = 0
+            total_test_loss,total_accuracy = 0,0
+            score_dict = {}
+            loss_dict ={}
+            for i, test_data in enumerate(testloader, 0):
+                # get the inputs
+                test_inputs, test_labels = test_data
+                test_outputs = model(test_inputs.to(device))
+                test_loss = criterion(test_outputs.to(device), test_labels.to(device))
+                pred = test_outputs.argmax(dim=1, keepdim=True) # get the index of the max log-probability
+
+                running_test_loss += test_loss.item()
+                total_test_loss += test_loss
+
+                if TEST_BATCH_SIZE==1:
+                    loss_dict['image_loss'+str(i)] = test_loss.item()
+                    score = test_outputs[0][pred].to('cpu')
+                    score_dict['image_score'+str(i)] = score.item()
+
+                    if pred == test_labels.to(device) :
+                        match += 1
+                        total_accuracy += 1
+                        running_match +=1
+                        # print("found MATCH !!!!!!!!!!!!!!!")
+
+                if TEST_BATCH_SIZE>1:
+                    temp_match , accuracy_batch = accuracy( pred.to('cpu'),test_labels.to('cpu') )
+                    match += temp_match
+                    running_match += temp_match
+                    total_accuracy += accuracy_batch
+
+                if i % 20 == 19:    # print every 20 mini-batches
+                    print('[At %d] loss: %.3f, accuracy: %.3f, cumulative match: %i' %( i + 1, running_test_loss / 20, running_match/20,match))
+                    running_match =0.0
+                    running_test_loss = 0.0
+
+            if TEST_BATCH_SIZE==1 and SAVING_JSON:
+                json.dump(loss_dict,open("test_img_loss1.json",'w'))
+                json.dump(score_dict,open("test_img_score1.json",'w'))
+                print('Save: 2 json files successfully!')
+
+            print("total_accuracy:",total_accuracy)
+            print("total_test_loss:",total_test_loss)
+            print("Number of match found: ",match) #500 match for no train , 6500 match for 5 epoch train
+            print('Finished Testing')
