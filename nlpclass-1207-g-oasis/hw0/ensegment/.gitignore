@@ -1,0 +1,11 @@
+__pycache__
+.DS_Store
+venv
+log
+output
+output.zip
+source.zip
+
+personal_note.txt
+venv37
+answer/.ipynb_checkpoints

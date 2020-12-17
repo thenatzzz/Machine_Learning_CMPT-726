@@ -1,0 +1,8 @@
+Nattapat Juthaprachakul (njuthapr, 301350117)
+
+----- Both of us wrote chunker.py since it took time to train the model.
+----- Both of us read semi-Character Recurrent Neural Network paper and discussed about the methods.
+      We explore several approaches such as concatenating the word embedding input to the chunker RNN as an input vector, 
+      implementing character-level LSTM encoding, etc.
+----- I wrote the chunker.ipynb.
+----- Both of us discussed the structure of our code, model we use in our code, and how to improve the performance together.

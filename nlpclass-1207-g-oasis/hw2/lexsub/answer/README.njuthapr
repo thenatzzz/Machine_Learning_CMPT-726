@@ -1,0 +1,7 @@
+Nattapat Juthaprachakul (njuthapr, 301350117)
+
+----- Both of us wrote lexsub.py since it took time to train and convert the embedding vectors.
+----- Both of us read Retrofit and Lexical substitute papers and discussed about the methods.
+      We explore several approaches such as using gensim to load Glove, Lexical Add/BalAdd, etc.
+----- I reviewed and modified the lexsub.ipynb.
+----- Both of us discussed the structure of our code, model we use in our code, and how to improve the performance together.
