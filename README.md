@@ -7,8 +7,8 @@
 -Weighted Squared Error\
 -Training vs. Test Error\
 -Basis Function Dependent Regularization\
--Regression\
-2. Deeplearning
+-Regression
+2. Deeplearning\
 -Softmax for Multi-Class Classification\
 -Generalized Linear Models for Classification\
 -Error Backpropagation\
